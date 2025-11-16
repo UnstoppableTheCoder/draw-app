@@ -1,12 +1,36 @@
 import WebSocket, { WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
+import { prismaClient } from "@repo/db/client";
+import "dotenv/config";
 
 const wss = new WebSocketServer({ port: 8080 });
 
 wss.on("listening", () => {
   console.log("WebSocket server is listening on ws://localhost:8080");
 });
+
+interface User {
+  userId: string;
+  rooms: string[];
+  ws: WebSocket;
+}
+
+const users: User[] = [];
+
+function checkUser(token: string): string | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+
+    if (!decoded || !decoded.userId) {
+      return null;
+    }
+
+    return decoded.userId;
+  } catch (error) {
+    return null;
+  }
+}
 
 wss.on("connection", (ws: WebSocket, request) => {
   ws.on("error", (err) => {
@@ -21,19 +45,61 @@ wss.on("connection", (ws: WebSocket, request) => {
   const queryParams = new URLSearchParams(url.split("?")[1]);
   const token = queryParams.get("token") ?? "";
 
-  const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-
-  if (!decoded || !decoded.userId) {
-    ws.close();
-    return;
+  const userId = checkUser(token);
+  if (!userId) {
+    return ws.close();
   }
 
-  ws.on("message", (data: string) => {
+  users.push({ userId, rooms: [], ws });
+
+  ws.on("message", async (data: string) => {
     const parsedData = JSON.parse(data);
-    ws.send("Pong");
+
+    if (parsedData.type === "join_room") {
+      console.log("Joining the room");
+      // All the required logic will come here
+      const user = users.find((u) => u.ws === ws);
+      user?.rooms.push(parsedData.roomId);
+      ws.send(`You have joined a room`);
+    }
+
+    if (parsedData.type === "leave_room") {
+      const user = users.find((u) => u.ws === ws);
+      if (!user) {
+        console.log("No User found");
+        return;
+      }
+
+      user.rooms = user.rooms.filter((r) => r !== parsedData.roomId);
+      ws.send("You have left the room");
+    }
+
+    if (parsedData.type === "chat") {
+      const roomId = parsedData.roomId;
+      const message = parsedData.message;
+
+      // Use queues in here
+      await prismaClient.chat.create({
+        data: {
+          roomId,
+          message,
+          userId,
+        },
+      });
+
+      users.forEach((user) => {
+        if (user.rooms.includes(roomId)) {
+          user.ws.send(JSON.stringify({ type: "chat", message, roomId }));
+        }
+      });
+    }
   });
 
   ws.on("close", () => {
     console.log("Disconnected");
   });
 });
+
+// Fixes ->
+// Persisting in db
+// Authentication

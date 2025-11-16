@@ -1,8 +1,10 @@
 {
   "name": "@repo/common",
-  "version": "1.0.0",
   "exports": {
-    "./types": "./dist/types.js"
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    }
   },
   "scripts": {
     "build": "tsc -b"
@@ -10,9 +12,6 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "module",
   "dependencies": {
     "zod": "^4.1.12"
