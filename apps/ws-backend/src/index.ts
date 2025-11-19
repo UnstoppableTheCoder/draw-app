@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
 import "dotenv/config";
+import { parse } from "dotenv";
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -16,7 +17,7 @@ interface User {
   ws: WebSocket;
 }
 
-const users: User[] = [];
+let users: User[] = [];
 
 function checkUser(token: string): string | null {
   try {
@@ -52,14 +53,18 @@ wss.on("connection", (ws: WebSocket, request) => {
 
   users.push({ userId, rooms: [], ws });
 
+  console.log("Connection - users - ", users);
+
   ws.on("message", async (data: string) => {
     const parsedData = JSON.parse(data);
 
+    console.log("message - server - ", parsedData);
+
     if (parsedData.type === "join_room") {
-      console.log("Joining the room");
-      // All the required logic will come here
       const user = users.find((u) => u.ws === ws);
-      user?.rooms.push(parsedData.roomId);
+      if (!user?.rooms.includes(parsedData.roomId)) {
+        user?.rooms.push(parsedData.roomId);
+      }
       ws.send(`You have joined a room`);
     }
 
@@ -93,9 +98,12 @@ wss.on("connection", (ws: WebSocket, request) => {
         }
       });
     }
+
+    console.log("message - users - ", users);
   });
 
   ws.on("close", () => {
+    users = users.filter((u) => u.ws !== ws);
     console.log("Disconnected");
   });
 });
