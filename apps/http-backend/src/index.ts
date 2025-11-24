@@ -10,11 +10,13 @@ import {
 import "dotenv/config";
 import { prismaClient } from "@repo/db/client";
 import bcrypt from "bcryptjs";
+import cors from "cors";
 
 const app = express();
 const PORT = 3001;
 
 app.use(express.json());
+app.use(cors({ origin: "*" }));
 
 // Get zod validation implemented
 app.post("/signup", async (req: Request, res: Response) => {
