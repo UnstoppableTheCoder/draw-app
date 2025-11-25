@@ -57,7 +57,7 @@ wss.on("connection", (ws: WebSocket, request) => {
   ws.on("message", async (data: string) => {
     const parsedData = JSON.parse(data);
 
-    console.log("message - server - ", parsedData);
+    console.log("message - parsedData - ", parsedData);
 
     if (parsedData.type === "join_room") {
       const user = users.find((u) => u.ws === ws);
