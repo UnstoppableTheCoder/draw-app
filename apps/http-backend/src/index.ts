@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { middleware } from "./middleware.js";
@@ -7,7 +8,6 @@ import {
   CreateUserSchema,
   SigninSchema,
 } from "@repo/common/types";
-import "dotenv/config";
 import { prismaClient } from "@repo/db/client";
 import bcrypt from "bcryptjs";
 import cors from "cors";
@@ -152,6 +152,27 @@ app.get("/room/:slug", async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: "Error getting the room", error });
+  }
+});
+
+app.post("/save-chats", middleware, async (req, res) => {
+  const { roomId, message } = req.body;
+  const userId = req.userId;
+
+  console.log({ roomId, message, userId });
+
+  try {
+    const chat = await prismaClient.chat.create({
+      data: { message, userId, roomId },
+    });
+
+    if (!chat) {
+      return res.status(400).json({ message: "Failed to created chat" });
+    }
+
+    res.status(201).json({ message: "chat created successfully", chat });
+  } catch (error) {
+    res.status(500).json({ message: "Error saving the chats", error });
   }
 });
 

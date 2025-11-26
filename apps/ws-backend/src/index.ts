@@ -1,8 +1,8 @@
+import "dotenv/config";
 import WebSocket, { WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
-import "dotenv/config";
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -82,14 +82,16 @@ wss.on("connection", (ws: WebSocket, request) => {
       const roomId = parsedData.roomId;
       const message = parsedData.message;
 
-      // Use queues in here
-      await prismaClient.chat.create({
-        data: {
-          roomId,
-          message,
-          userId,
-        },
-      });
+      // There's something wrong in here, we get the right data, but unable to save in db
+      // Check the env file if you get the right one
+      try {
+        // Use queues in here
+        const chat = await prismaClient.chat.create({
+          data: { message, userId, roomId },
+        });
+      } catch (error) {
+        console.log("Error saving chat: ", error);
+      }
 
       users.forEach((user) => {
         if (user.rooms.includes(roomId)) {
