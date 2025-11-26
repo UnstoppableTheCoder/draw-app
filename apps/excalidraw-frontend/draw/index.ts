@@ -14,6 +14,13 @@ type Shape =
       centerX: number;
       centerY: number;
       radius: number;
+    }
+  | {
+      type: "pencil";
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
     };
 
 export async function initDraw(
@@ -47,13 +54,30 @@ export async function initDraw(
     const width = e.clientX - startX;
     const height = e.clientY - startY;
 
-    const shape: Shape = {
-      type: "rect",
-      x: startX,
-      y: startY,
-      width,
-      height,
-    };
+    // @ts-ignore
+    const selectedTool = window.selectedTool;
+    console.log(selectedTool);
+    let shape: Shape | null = null;
+
+    if (selectedTool === "rect") {
+      shape = {
+        type: selectedTool,
+        x: startX,
+        y: startY,
+        width,
+        height,
+      };
+    } else if (selectedTool === "circle") {
+      const radius = Math.max(width, height) / 2;
+      shape = {
+        type: "circle",
+        radius: radius,
+        centerX: startX + radius,
+        centerY: startY + radius,
+      };
+    }
+
+    if (!shape) return;
 
     existingShapes.push(shape);
 
@@ -77,8 +101,21 @@ export async function initDraw(
       const width = e.clientX - startX;
       const height = e.clientY - startY;
       clearCanvas(existingShapes, canvas, ctx);
-      ctx.strokeRect(startX, startY, width, height);
-      ctx.strokeStyle = "rgba(255, 255, 255)";
+      //@ts-ignore
+      const selectedTool = window.selectedTool;
+      if (selectedTool === "rect") {
+        ctx.strokeStyle = "rgba(255, 255, 255)";
+        ctx.strokeRect(startX, startY, width, height);
+      } else if (selectedTool === "circle") {
+        const radius = Math.max(width, height) / 2;
+        const centerX = startX + radius;
+        const centerY = startY + radius;
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.closePath();
+      }
     }
   });
 }
@@ -96,6 +133,11 @@ function clearCanvas(
     if (shape.type === "rect") {
       ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       ctx.strokeStyle = "rgba(255, 255, 255)";
+    } else if (shape.type === "circle") {
+      ctx.beginPath();
+      ctx.arc(shape.centerX, shape.centerY, shape.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.closePath();
     }
   });
 }
