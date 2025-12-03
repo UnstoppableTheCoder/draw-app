@@ -78,24 +78,21 @@ wss.on("connection", (ws: WebSocket, request) => {
       ws.send("You have left the room");
     }
 
-    if (parsedData.type === "chat") {
-      const roomId = parsedData.roomId;
-      const message = parsedData.message;
-
-      // There's something wrong in here, we get the right data, but unable to save in db
-      // Check the env file if you get the right one
+    if (parsedData.type === "shape:add") {
+      const { roomId, shape } = parsedData;
       try {
         // Use queues in here
-        const chat = await prismaClient.chat.create({
-          data: { message, userId, roomId },
+        const newShape = await prismaClient.shape.create({
+          data: { roomId, ...shape, createdBy: userId },
         });
+        
       } catch (error) {
         console.log("Error saving chat: ", error);
       }
 
       users.forEach((user) => {
         if (user.rooms.includes(roomId)) {
-          user.ws.send(JSON.stringify({ type: "chat", message, roomId }));
+          user.ws.send(JSON.stringify({ type: "shape:add", shape, roomId }));
         }
       });
     }
@@ -108,7 +105,3 @@ wss.on("connection", (ws: WebSocket, request) => {
     console.log("Disconnected");
   });
 });
-
-// Fixes ->
-// Persisting in db
-// Authentication

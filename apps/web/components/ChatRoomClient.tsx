@@ -15,13 +15,8 @@ export default function ChatRoomClient({
   const [chats, setChats] = useState(messages);
   const [currentMessage, setCurrentMessage] = useState("");
 
-  console.log("Socket from client: ", socket);
-  alert(socket);
-
   useEffect(() => {
-    alert(socket);
     if (socket) {
-      alert("Socket exists");
       socket.onopen = () => {
         socket.send(
           JSON.stringify({

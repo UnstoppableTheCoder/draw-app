@@ -1,0 +1,18 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model Pencil {
+    id     Int @id @default(autoincrement())
+    startX Int
+    startY Int
+    mouseX Int
+    mouseY Int
+
+    @@map("pencils")
+}

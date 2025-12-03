@@ -20,13 +20,14 @@ app.use(cors({ origin: "*" }));
 
 // Get zod validation implemented
 app.post("/signup", async (req: Request, res: Response) => {
+  console.log(req.body);
   try {
     const result = CreateUserSchema.safeParse(req.body);
     if (!result.success) {
       return res.json({ message: "Incorrect Inputs" });
     }
 
-    const { name, username, password } = result.data;
+    const { username, password } = result.data;
 
     const user = await prismaClient.user.findUnique({
       where: {
@@ -40,11 +41,11 @@ app.post("/signup", async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await prismaClient.user.create({
       data: {
-        name,
         username,
         password: hashedPassword,
       },
     });
+
     if (!newUser) {
       return res.status(400).json({ message: "Error signing up the user" });
     }
@@ -86,7 +87,7 @@ app.post("/signin", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/room", middleware, async (req: Request, res: Response) => {
+app.post("/rooms", middleware, async (req: Request, res: Response) => {
   try {
     const result = CreateRoomSchema.safeParse(req.body);
     if (!result.success) {
@@ -109,33 +110,65 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
     // DB Call
     res.status(201).json({
       roomId: room.id,
+      roomName: name,
     });
   } catch (error) {
     return res.status(500).json({ message: "Error creating room", error });
   }
 });
 
-app.get("/chats/:roomId", async (req, res) => {
+app.get("/rooms", middleware, async (req, res) => {
+  try {
+    console.log("Getting the rooms");
+    const userId = req.userId;
+    const rooms = await prismaClient.room.findMany({
+      where: { adminId: userId },
+    });
+    return res
+      .status(200)
+      .json({ message: "Rooms fetched successfully", rooms });
+  } catch (error) {
+    res.status(500).json({ message: "Error getting the rooms", error });
+  }
+});
+
+app.delete("/rooms/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ message: "Room ID not found" });
+  try {
+    const shapes = await prismaClient.shape.deleteMany({
+      where: { roomId: Number(id) },
+    });
+    const room = await prismaClient.room.delete({ where: { id: Number(id) } });
+    return res.status(200).json({ message: "Room deleted successfully", room });
+  } catch (error) {
+    return res.status(500).json({ message: "Error deleting the room", error });
+  }
+});
+
+app.get("/canvas/:roomId", middleware, async (req, res) => {
   try {
     const roomId = Number(req.params.roomId);
 
-    const messages = await prismaClient.chat.findMany({
+    const shapes = await prismaClient.shape.findMany({
       where: {
         roomId,
       },
       orderBy: {
         id: "desc",
       },
-      take: 50,
+      //   take: 50,
     });
 
-    res.json({ messages });
+    console.log("Shapes: ", shapes);
+
+    res.json({ shapes });
   } catch (error) {
     return res.status(500).json({ message: "Error getting chats", error });
   }
 });
 
-app.get("/room/:slug", async (req, res) => {
+app.get("/rooms/:slug", middleware, async (req, res) => {
   try {
     const { slug } = req.params;
 
@@ -152,27 +185,6 @@ app.get("/room/:slug", async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: "Error getting the room", error });
-  }
-});
-
-app.post("/save-chats", middleware, async (req, res) => {
-  const { roomId, message } = req.body;
-  const userId = req.userId;
-
-  console.log({ roomId, message, userId });
-
-  try {
-    const chat = await prismaClient.chat.create({
-      data: { message, userId, roomId },
-    });
-
-    if (!chat) {
-      return res.status(400).json({ message: "Failed to created chat" });
-    }
-
-    res.status(201).json({ message: "chat created successfully", chat });
-  } catch (error) {
-    res.status(500).json({ message: "Error saving the chats", error });
   }
 });
 

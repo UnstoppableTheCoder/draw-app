@@ -3,18 +3,28 @@
 import { WS_URL } from "@/config";
 import { useEffect, useState } from "react";
 import Canvas from "./Canvas";
+import { useRouter } from "next/navigation";
+import isUser from "@/auth/isUser";
+import toast from "react-hot-toast";
 
 export default function RoomCanvas({ roomId }: { roomId: string }) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const ws = new WebSocket(
-      `${WS_URL}?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIyMDViYTJmNC05MjUxLTQwYTQtODQzNS0xYmFiYWI2M2MxYzEiLCJpYXQiOjE3NjQxMzQ4MDF9.3C4W5kySrsJ3SUB5sFRRPLtbjpFGU3SnprXrHONHrNk`
-    );
+    const token = localStorage.getItem("token") || "";
+    const userExits = isUser(token);
+    if (!userExits) {
+      toast.error("Access Denied : User is not logged in");
+      router.push("/signup");
+    }
+
+    const ws = new WebSocket(`${WS_URL}?token=${token}`);
 
     ws.onopen = () => {
       setSocket(ws);
       ws.send(JSON.stringify({ type: "join_room", roomId: Number(roomId) }));
+      toast.success("You have joined the room");
     };
   }, []);
 

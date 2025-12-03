@@ -1,7 +1,25 @@
+"use client";
+
+import isUser from "@/auth/isUser";
+import Logout from "@/components/Logout";
 import { Pencil, Users, Zap, Download } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || "";
+    const userExits = isUser(token);
+    if (userExits) {
+      const setLoggedIn = () => setIsLoggedIn(true);
+      setLoggedIn();
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
@@ -25,9 +43,7 @@ function App() {
               >
                 About
               </a>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                Get Started
-              </button>
+              {isLoggedIn && <Logout />}
             </div>
           </div>
         </div>
@@ -47,17 +63,29 @@ function App() {
               and visual collaboration. Create beautiful diagrams and sketches
               with ease.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href={"/signup"}>
-                <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                  Sign up
-                </button>
-              </Link>
-              <Link href={"/signin"}>
-                <button className="px-8 py-4 bg-white text-gray-900 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all font-semibold text-lg flex items-center gap-2">
-                  Sign in
-                </button>
-              </Link>
+            <div className="flex justify-center">
+              {isLoggedIn ? (
+                <div>
+                  <Link href={"/room"}>
+                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                      Go to Room Page
+                    </button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <Link href={"/signup"}>
+                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                      Sign up
+                    </button>
+                  </Link>
+                  <Link href={"/signin"}>
+                    <button className="px-8 py-4 bg-white text-gray-900 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all font-semibold text-lg flex items-center gap-2">
+                      Sign in
+                    </button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </section>
