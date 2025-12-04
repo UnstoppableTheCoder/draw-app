@@ -19,11 +19,11 @@ export enum Tools {
   Pencil = "pencil",
   Rect = "rect",
   Line = "line",
-  Pointer = "pointer",
+  Select = "select",
   Text = "text",
 }
 
-export type Tool = "circle" | "pencil" | "rect" | "line" | "pointer" | "text";
+export type Tool = "circle" | "pencil" | "rect" | "line" | "select" | "text";
 
 export default function Canvas({
   roomId,
@@ -34,9 +34,9 @@ export default function Canvas({
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [selectedTool, setSelectedTool] = useState<Tool>(Tools.Pointer);
+  const [selectedTool, setSelectedTool] = useState<Tool>(Tools.Select);
   const [game, setGame] = useState<Game>();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [isInputVisible, setIsInputVisible] = useState(false);
   const [inputVal, setInputVal] = useState("");
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -58,7 +58,7 @@ export default function Canvas({
     const { x, y } = pos;
     inputRef.current.style.display = "block";
     inputRef.current.style.left = `${x}px`;
-    inputRef.current.style.top = `${y - 14}px`;
+    inputRef.current.style.top = `${y-7}px`;
 
     inputRef.current.focus();
   }
@@ -70,7 +70,7 @@ export default function Canvas({
   useEffect(() => {
     if (canvasRef.current) {
       //   initDraw(canvasRef.current, roomId, socket);
-      const g = new Game(canvasRef.current, roomId, socket);
+      const g = new Game(canvasRef.current, roomId, socket, setSelectedTool);
       setGame(g);
 
       return () => {
@@ -85,28 +85,47 @@ export default function Canvas({
     setSelectedTool("text");
   };
 
+  const getTextDimension = (
+    ctx: CanvasRenderingContext2D,
+    font: string,
+    text: string
+  ): { width: number; height: number } => {
+    ctx.font = font;
+    const lines = text.split("\n");
+    const dims = {
+      width: Math.max(...lines.map((line) => ctx.measureText(line).width)),
+      height: parseInt(font) * 1.2,
+    };
+
+    return dims;
+  };
+
   const handleClick = (e: ReactMouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx) return;
+
     if (selectedTool === "text") {
       setIsInputVisible(true);
       renderInput(e);
+      setSelectedTool("select");
+    }
 
-      // Send data to ws-server
-      if (inputVal) {
-        socket.send(
-          JSON.stringify({
-            type: "shape:add",
-            shape: {
-              type: "text",
-              data: { text: inputVal, ...position },
-              color: "white",
-              thickness: 2,
-            },
-            roomId: Number(roomId),
-          })
-        );
-
-        setSelectedTool("pointer");
-      }
+    // Send data to ws-server
+    if (inputVal) {
+      const { width, height } = getTextDimension(ctx, "40px Arial", inputVal);
+      socket.send(
+        JSON.stringify({
+          type: "shape:add",
+          shape: {
+            type: "text",
+            data: { text: inputVal, ...position, width, height },
+            color: "white",
+            thickness: 2,
+          },
+          roomId: Number(roomId),
+        })
+      );
     }
 
     if (!inputRef.current) return;
@@ -118,7 +137,7 @@ export default function Canvas({
     setInputVal("");
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setInputVal(e.target.value);
   };
 
@@ -150,13 +169,13 @@ export default function Canvas({
           onClick={handleClick}
         ></canvas>
 
-        <input
+        <textarea
           ref={inputRef}
-          className={`absolute text-white placeholder:text-white text-[40px] outline-none`}
-          type="text"
+          className={`absolute text-white placeholder:text-white text-[40px] outline-none resize-none field-sizing-content leading-[50px]`}
+          id="textarea"
           value={inputVal}
           onChange={handleChange}
-        />
+        ></textarea>
 
         <div className="absolute top-2 right-5">
           <IconButton icon={<LogOut />} onClick={handleLeaveRoom} />

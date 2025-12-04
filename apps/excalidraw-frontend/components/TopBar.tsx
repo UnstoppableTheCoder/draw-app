@@ -20,10 +20,10 @@ export function TopBar({
   return (
     <div className="absolute top-0 left-0 flex gap-3 p-2">
       <IconButton
-        activated={selectedTool === Tools.Pointer}
+        activated={selectedTool === Tools.Select}
         icon={<MousePointer2 />}
         onClick={() => {
-          setSelectedTool(Tools.Pointer);
+          setSelectedTool(Tools.Select);
         }}
       />
       <IconButton

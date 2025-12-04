@@ -3,6 +3,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
+import { v4 as uuidv4 } from "uuid";
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -85,14 +86,19 @@ wss.on("connection", (ws: WebSocket, request) => {
         const newShape = await prismaClient.shape.create({
           data: { roomId, ...shape, createdBy: userId },
         });
-        
       } catch (error) {
         console.log("Error saving chat: ", error);
       }
 
       users.forEach((user) => {
         if (user.rooms.includes(roomId)) {
-          user.ws.send(JSON.stringify({ type: "shape:add", shape, roomId }));
+          user.ws.send(
+            JSON.stringify({
+              type: "shape:add",
+              shape: { id: uuidv4(), ...shape },
+              roomId,
+            })
+          );
         }
       });
     }

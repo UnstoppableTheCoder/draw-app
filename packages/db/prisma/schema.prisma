@@ -27,7 +27,7 @@ model Room {
 }
 
 model Shape {
-    id        Int      @id @default(autoincrement())
+    id        String   @id @default(uuid())
     roomId    Int
     type      String
     data      Json

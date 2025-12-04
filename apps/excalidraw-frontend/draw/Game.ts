@@ -1,6 +1,10 @@
 import { Tool } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
 import { Shape } from "@/types/shape";
+import { getShapePosition, hitTest } from "./helper";
+import { Dispatch, SetStateAction } from "react";
+
+// Todo: Make sure, when you draw something that comes at the top - z index thing
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -11,22 +15,41 @@ export class Game {
   private clicked: boolean;
   private startX: number = 0;
   private startY: number = 0;
-  private selectedTool: Tool = "pointer";
+  private selectedTool: Tool = "select";
+  private selectedShapeId: string | null = null;
+  private isDragging = false;
+  private dragOffset = { x: 0, y: 0 };
+  private selectedColor = "#0000ff";
+  private selectedLineThickness = 3;
+  private setSelectedTool: Dispatch<SetStateAction<string>>;
 
-  constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
+  // When you get the data from websocket server, you don't have any id
+  // So, you won't be able to move
+  // Create the id on the client itself, & send to ws, http & db
+  // Create the room
+  // Get the roomId
+  // Anybody, with that roomId should be able to join
+
+  constructor(
+    canvas: HTMLCanvasElement,
+    roomId: string,
+    socket: WebSocket,
+    setSelectedTool: Dispatch<SetStateAction<string>>
+  ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.existingShapes = [];
     this.roomId = roomId;
     this.socket = socket;
     this.clicked = false;
+    this.setSelectedTool = setSelectedTool;
 
     this.init();
     this.getSocketMessages();
     this.initPointerHandlers();
   }
 
-  setTool(tool: "circle" | "rect" | "pencil" | "line" | "pointer" | "text") {
+  setTool(tool: "circle" | "rect" | "pencil" | "line" | "select" | "text") {
     this.selectedTool = tool;
   }
 
@@ -38,13 +61,27 @@ export class Game {
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.existingShapes.map((shape) => {
-      this.renderShape(this.ctx, shape);
+      if (this.isDragging && shape.id === this.selectedShapeId) {
+        this.renderShape(
+          this.ctx,
+          shape,
+          this.selectedLineThickness,
+          this.selectedColor
+        );
+      } else {
+        this.renderShape(this.ctx, shape);
+      }
     });
   }
 
-  renderShape = (ctx: CanvasRenderingContext2D, shape: Shape) => {
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = shape.thickness;
+  renderShape = (
+    ctx: CanvasRenderingContext2D,
+    shape: Shape,
+    selectedThickness?: number,
+    selectedColor?: string
+  ) => {
+    ctx.strokeStyle = selectedColor || shape.color;
+    ctx.lineWidth = selectedThickness || shape.thickness;
 
     switch (shape.type) {
       case "rect": {
@@ -75,15 +112,18 @@ export class Game {
         break;
       }
       case "text": {
-        const { text, x, y } = shape.data;
-        this.ctx.font = "40px Arial";
-        this.ctx.fillStyle = "white";
-        this.ctx.textBaseline = "top";
-        this.ctx.fillText(text, x, y);
+        const { text, x, y, width, height } = shape.data;
+        const lines = text.split("\n");
+
+        ctx.font = "40px Arial";
+        ctx.fillStyle = selectedColor || shape.color;
+        ctx.textBaseline = "top";
+
+        lines.forEach((line, index) => {
+          ctx.fillText(line, x, y + index * height, width);
+        });
         break;
       }
-      default:
-        break;
     }
   };
 
@@ -95,6 +135,8 @@ export class Game {
         const shape = parsedData.shape;
         this.existingShapes.push(shape);
         this.clearCanvas();
+        console.log(shape);
+        console.log("Existing Shapes: ", this.existingShapes);
       }
     };
   }
@@ -116,12 +158,16 @@ export class Game {
     this.canvas.removeEventListener("pointermove", this.pointerMoveHandler);
   }
 
-  pointerUpHandler = (e: MouseEvent) => {
+  pointerUpHandler = (e: PointerEvent) => {
     this.clicked = false;
     const { width, height } = this.getSize(e);
     const { x: endX, y: endY } = this.getPos(e);
     const selectedTool = this.selectedTool;
     let shape: Shape | null = null;
+
+    this.isDragging = false;
+    this.clearCanvas();
+    this.selectedShapeId = null;
 
     if (selectedTool === "rect") {
       shape = {
@@ -148,7 +194,8 @@ export class Game {
         thickness: 2,
       };
     } else if (selectedTool === "pencil") {
-      const lastShape = this.existingShapes[this.existingShapes.length - 1];
+      const lastShape = this.existingShapes.pop();
+      if (!lastShape) return;
       shape = lastShape;
     } else if (selectedTool === "line") {
       shape = {
@@ -172,9 +219,17 @@ export class Game {
         roomId: Number(this.roomId),
       })
     );
+
+    if (
+      selectedTool === "rect" ||
+      selectedTool === "circle" ||
+      selectedTool === "line"
+    ) {
+      this.setSelectedTool("select");
+    }
   };
 
-  pointerDownHandler = (e: MouseEvent) => {
+  pointerDownHandler = (e: PointerEvent) => {
     this.clicked = true;
     const { x, y } = this.getPos(e);
     this.startX = x;
@@ -189,49 +244,128 @@ export class Game {
         color: "#ffffff",
         thickness: 2,
       });
-    }
-  };
+    } else if (this.selectedTool === "select") {
+      for (let i = this.existingShapes.length - 1; i >= 0; i--) {
+        if (hitTest(x, y, this.existingShapes[i])) {
+          this.selectedShapeId = this.existingShapes[i].id!;
+          const shapePos = getShapePosition(this.existingShapes[i]);
+          this.dragOffset = {
+            x: x - shapePos.x,
+            y: y - shapePos.y,
+          };
 
-  pointerMoveHandler = (e: MouseEvent) => {
-    if (this.clicked) {
-      const { width, height } = this.getSize(e);
-      const { startX, startY } = this;
-      const { x: endX, y: endY } = this.getPos(e);
-      const selectedTool = this.selectedTool;
-
-      this.clearCanvas();
-
-      this.ctx.strokeStyle = "#ffffff";
-      this.ctx.lineWidth = 2;
-      if (selectedTool === "rect") {
-        this.ctx.strokeRect(startX, startY, width, height);
-      } else if (selectedTool === "circle") {
-        const radius = Math.max(width, height) / 2;
-        const centerX = startX + radius;
-        const centerY = startY + radius;
-
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
-        this.ctx.stroke();
-        this.ctx.closePath();
-      } else if (selectedTool === "pencil") {
-        const lastShape = this.existingShapes[this.existingShapes.length - 1];
-        if (lastShape.type === "pencil") {
-          lastShape.data.points.push({
-            x: endX,
-            y: endY,
-          });
+          this.isDragging = true;
+          this.canvas.setPointerCapture(e.pointerId); // Keeps events during drag
         }
-        this.clearCanvas();
-      } else if (selectedTool === "line") {
-        this.ctx.beginPath();
-        this.ctx.moveTo(startX, startY);
-        this.ctx.lineTo(endX, endY);
-        this.ctx.stroke();
-        this.ctx.closePath();
       }
+
+      this.highlightShape();
+      return;
+    }
+
+    this.selectedShapeId = null;
+  };
+
+  pointerMoveHandler = (e: PointerEvent) => {
+    if (!this.clicked) return;
+
+    const { width, height } = this.getSize(e);
+    const { startX, startY } = this;
+    const { x: endX, y: endY } = this.getPos(e);
+    const selectedTool = this.selectedTool;
+
+    this.clearCanvas();
+
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeStyle = "white";
+    if (selectedTool === "rect") {
+      this.ctx.strokeRect(startX, startY, width, height);
+    } else if (selectedTool === "circle") {
+      const radius = Math.max(width, height) / 2;
+      const centerX = startX + radius;
+      const centerY = startY + radius;
+
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.closePath();
+    } else if (selectedTool === "pencil") {
+      const lastShape = this.existingShapes[this.existingShapes.length - 1];
+      if (lastShape.type === "pencil") {
+        lastShape.data.points.push({
+          x: endX,
+          y: endY,
+        });
+      }
+      this.clearCanvas();
+    } else if (selectedTool === "line") {
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, startY);
+      this.ctx.lineTo(endX, endY);
+      this.ctx.stroke();
+      this.ctx.closePath();
+    } else if (
+      selectedTool === "select" &&
+      this.isDragging &&
+      this.selectedShapeId
+    ) {
+      const shape = this.existingShapes.find(
+        (s) => s.id === this.selectedShapeId
+      );
+      if (!shape) return;
+
+      // New Position
+      const newX = endX - this.dragOffset.x;
+      const newY = endY - this.dragOffset.y;
+
+      this.moveShape(shape, newX, newY);
+      //   this.highlightShape();
     }
   };
+
+  moveShape = (shape: Shape, newX: number, newY: number) => {
+    const { x: oldX, y: oldY } = getShapePosition(shape);
+    const dx = newX - oldX;
+    const dy = newY - oldY;
+
+    switch (shape.type) {
+      case "rect":
+        shape.data.x += dx;
+        shape.data.y += dy;
+        break;
+      case "circle":
+        shape.data.centerX += dx;
+        shape.data.centerY += dy;
+        break;
+      case "text":
+        shape.data.x += dx;
+        shape.data.y += dy;
+        break;
+      case "line":
+        shape.data.startX += dx;
+        shape.data.startY += dy;
+        shape.data.endX += dx;
+        shape.data.endY += dy;
+        break;
+      case "pencil":
+        const { points } = shape.data;
+        points.forEach((point) => {
+          point.x += dx;
+          point.y += dy;
+        });
+        break;
+    }
+  };
+
+  highlightShape() {
+    this.existingShapes.forEach((shape) => {
+      if (shape.id === this.selectedShapeId) {
+        const strokeStyle = "#0000ff";
+        const lineThickness = 3;
+        this.renderShape(this.ctx, shape, lineThickness, strokeStyle);
+      }
+    });
+  }
 
   //   drawLine = (points) => {
   //     let x1 = endX;
@@ -287,7 +421,7 @@ export class Game {
   ) => {
     if (points.length < 2) return;
 
-    ctx.strokeStyle = "#ffffff";
+    // ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
@@ -302,7 +436,7 @@ export class Game {
     ctx.stroke();
   };
 
-  getPos = (e: MouseEvent) => {
+  getPos = (e: PointerEvent) => {
     const rect = this.canvas.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
@@ -310,7 +444,7 @@ export class Game {
     };
   };
 
-  getSize = (e: MouseEvent) => {
+  getSize = (e: PointerEvent) => {
     const { x, y } = this.getPos(e);
     return {
       width: x - this.startX,
