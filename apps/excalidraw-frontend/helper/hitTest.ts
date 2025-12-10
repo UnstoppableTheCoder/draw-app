@@ -1,5 +1,6 @@
 import {
   CircleShape,
+  EllipseShape,
   LineShape,
   PencilShape,
   RectShape,
@@ -26,6 +27,14 @@ export function pointInCircle(
   const dy = y - circle.data.centerY;
 
   return dx * dx + dy * dy <= circle.data.radius * circle.data.radius; // Formula to know PointInCircle
+}
+
+export function pointInEllipse(x: number, y: number, ellipse: EllipseShape) {
+  const { centerX, centerY, radiusX, radiusY } = ellipse.data;
+  const dx = x - centerX;
+  const dy = y - centerY;
+
+  return (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1;
 }
 
 export function pointInText(
@@ -135,23 +144,6 @@ function distanceToLineSegment(
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-export function hitTest(x: number, y: number, shape: Shape): boolean {
-  switch (shape.type) {
-    case "rect":
-      return pointInRect(x, y, shape);
-    case "circle":
-      return pointInCircle(x, y, shape);
-    case "text":
-      return pointInText(x, y, shape);
-    case "line":
-      return pointInLine(x, y, shape);
-    case "pencil":
-      return pointInPencil(x, y, shape);
-    default:
-      return false;
-  }
-}
-
 export function getShapePosition(shape: Shape) {
   switch (shape.type) {
     case "rect": {
@@ -170,9 +162,37 @@ export function getShapePosition(shape: Shape) {
       const { startX, startY } = shape.data;
       return { x: startX, y: startY };
     }
-    case "pencil":
+    case "pencil": {
       const { points } = shape.data;
       const { x, y } = points[0];
       return { x, y };
+    }
+    case "ellipse": {
+      const { centerX, centerY, radiusX, radiusY } = shape.data;
+      return {
+        x: centerX - radiusX,
+        y: centerY,
+        radiusY,
+      };
+    }
+  }
+}
+
+export function hitTest(x: number, y: number, shape: Shape): boolean {
+  switch (shape.type) {
+    case "rect":
+      return pointInRect(x, y, shape);
+    case "circle":
+      return pointInCircle(x, y, shape);
+    case "text":
+      return pointInText(x, y, shape);
+    case "line":
+      return pointInLine(x, y, shape);
+    case "pencil":
+      return pointInPencil(x, y, shape);
+    case "ellipse":
+      return pointInEllipse(x, y, shape);
+    default:
+      return false;
   }
 }

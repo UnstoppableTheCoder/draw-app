@@ -1,12 +1,12 @@
-import { z } from "zod";
+import * as z from "zod";
 
 export const CreateUserSchema = z.object({
-  username: z.string().min(3).max(20).lowercase(),
+  username: z.string().min(3).max(20).toLowerCase(),
   password: z.string(),
 });
 
 export const SigninSchema = z.object({
-  username: z.string().min(3).max(20).lowercase(),
+  username: z.string().min(3).max(20).toLowerCase(),
   password: z.string(),
 });
 

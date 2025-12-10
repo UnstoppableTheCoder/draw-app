@@ -23,6 +23,7 @@ app.post("/signup", async (req: Request, res: Response) => {
   console.log(req.body);
   try {
     const result = CreateUserSchema.safeParse(req.body);
+    console.log(result.success);
     if (!result.success) {
       return res.json({ message: "Incorrect Inputs" });
     }
@@ -109,7 +110,7 @@ app.post("/rooms", middleware, async (req: Request, res: Response) => {
 
     // DB Call
     res.status(201).json({
-      roomId: room.id,
+      room: room,
       roomName: name,
     });
   } catch (error) {
@@ -135,10 +136,14 @@ app.get("/rooms", middleware, async (req, res) => {
 app.delete("/rooms/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ message: "Room ID not found" });
+
   try {
+    // Delete all the shapes
     const shapes = await prismaClient.shape.deleteMany({
       where: { roomId: Number(id) },
     });
+
+    // Delete the rooms
     const room = await prismaClient.room.delete({ where: { id: Number(id) } });
     return res.status(200).json({ message: "Room deleted successfully", room });
   } catch (error) {
@@ -168,25 +173,25 @@ app.get("/canvas/:roomId", middleware, async (req, res) => {
   }
 });
 
-app.get("/rooms/:slug", middleware, async (req, res) => {
-  try {
-    const { slug } = req.params;
+// app.get("/rooms/:slug", middleware, async (req, res) => {
+//   try {
+//     const { slug } = req.params;
 
-    console.log("Slug: ", slug);
+//     console.log("Slug: ", slug);
 
-    const room = await prismaClient.room.findUnique({
-      where: {
-        slug,
-      },
-    });
+//     const room = await prismaClient.room.findUnique({
+//       where: {
+//         slug,
+//       },
+//     });
 
-    res.json({
-      room,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: "Error getting the room", error });
-  }
-});
+//     res.json({
+//       room,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({ message: "Error getting the room", error });
+//   }
+// });
 
 app.listen(PORT, () => {
   console.log(`Server is listening at http://localhost:${PORT}`);

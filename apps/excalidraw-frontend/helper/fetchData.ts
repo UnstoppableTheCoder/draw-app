@@ -8,6 +8,5 @@ export async function getExistingShapes(roomId: string) {
       Authorization: "Bearer " + token,
     },
   });
-  const shapes = res.data.shapes;
-  return shapes;
+  return res.data.shapes;
 }

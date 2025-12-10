@@ -4,7 +4,7 @@ export default function Logout({ bgColor }: { bgColor?: string }) {
   const router = useRouter();
   const handleClick = () => {
     localStorage.removeItem("token");
-    router.push("/signin");
+    router.push("/");
   };
 
   return (

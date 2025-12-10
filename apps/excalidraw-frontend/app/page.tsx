@@ -1,23 +1,20 @@
 "use client";
 
-import isUser from "@/auth/isUser";
-import Logout from "@/components/Logout";
+import Logout from "@/components/auth/Logout";
+import isLoggedIn from "@/helper/isLoggedIn";
 import { Pencil, Users, Zap, Download } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const router = useRouter();
+  const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
-    const userExits = isUser(token);
-    if (userExits) {
-      const setLoggedIn = () => setIsLoggedIn(true);
-      setLoggedIn();
-    }
+    const isLogged = isLoggedIn(token);
+
+    const setLoggedInValue = () => setLoggedIn(isLogged);
+    setLoggedInValue();
   }, []);
 
   return (
@@ -43,7 +40,7 @@ function App() {
               >
                 About
               </a>
-              {isLoggedIn && <Logout />}
+              {loggedIn && <Logout />}
             </div>
           </div>
         </div>
@@ -64,10 +61,10 @@ function App() {
               with ease.
             </p>
             <div className="flex justify-center">
-              {isLoggedIn ? (
+              {loggedIn ? (
                 <div>
                   <Link href={"/room"}>
-                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer">
                       Go to Room Page
                     </button>
                   </Link>
@@ -75,12 +72,12 @@ function App() {
               ) : (
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                   <Link href={"/signup"}>
-                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    <button className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer">
                       Sign up
                     </button>
                   </Link>
                   <Link href={"/signin"}>
-                    <button className="px-8 py-4 bg-white text-gray-900 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all font-semibold text-lg flex items-center gap-2">
+                    <button className="px-8 py-4 bg-white text-gray-900 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all font-semibold text-lg flex items-center gap-2 cursor-pointer">
                       Sign in
                     </button>
                   </Link>

@@ -1,34 +1,11 @@
-export interface RectData {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface CircleData {
-  centerX: number;
-  centerY: number;
-  radius: number;
-}
-
-export interface PencilData {
-  points: { x: number; y: number }[];
-}
-
-export interface LineData {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-}
-
-export interface TextData {
-  text: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import {
+  CircleData,
+  EllipseData,
+  LineData,
+  PencilData,
+  RectData,
+  TextData,
+} from "./shapeData";
 
 interface BaseShape {
   id?: string;
@@ -61,9 +38,23 @@ export interface TextShape extends BaseShape {
   data: TextData;
 }
 
+export interface EllipseShape extends BaseShape {
+  type: "ellipse";
+  data: EllipseData;
+}
+
+export type Data =
+  | RectData
+  | CircleData
+  | PencilData
+  | LineData
+  | TextData
+  | EllipseData;
+
 export type Shape =
   | RectShape
   | CircleShape
   | PencilShape
   | LineShape
-  | TextShape;
+  | TextShape
+  | EllipseShape;

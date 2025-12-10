@@ -65,10 +65,8 @@ wss.on("connection", (ws: WebSocket, request) => {
       if (!user?.rooms.includes(parsedData.roomId)) {
         user?.rooms.push(parsedData.roomId);
       }
-      ws.send(`You have joined a room`);
-    }
-
-    if (parsedData.type === "leave_room") {
+      ws.send(JSON.stringify({ message: `You have joined a room` }));
+    } else if (parsedData.type === "leave_room") {
       const user = users.find((u) => u.ws === ws);
       if (!user) {
         console.log("No User found");
@@ -76,31 +74,92 @@ wss.on("connection", (ws: WebSocket, request) => {
       }
 
       user.rooms = user.rooms.filter((r) => r !== parsedData.roomId);
-      ws.send("You have left the room");
-    }
-
-    if (parsedData.type === "shape:add") {
+      ws.send(JSON.stringify({ message: "You have left the room" }));
+    } else if (parsedData.type === "shape:add") {
       const { roomId, shape } = parsedData;
       try {
         // Use queues in here
         const newShape = await prismaClient.shape.create({
           data: { roomId, ...shape, createdBy: userId },
         });
+
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId)) {
+            user.ws.send(
+              JSON.stringify({
+                type: "shape:add",
+                shape: newShape,
+                roomId,
+              })
+            );
+          }
+        });
       } catch (error) {
         console.log("Error saving chat: ", error);
       }
+    } else if (parsedData.type === "shape:update") {
+      const { shape, roomId } = parsedData;
+      const updatedShape = await prismaClient.shape.update({
+        where: {
+          id: shape.id,
+        },
+        data: shape,
+      });
 
       users.forEach((user) => {
         if (user.rooms.includes(roomId)) {
           user.ws.send(
             JSON.stringify({
-              type: "shape:add",
-              shape: { id: uuidv4(), ...shape },
+              type: "shape:update",
+              shape: updatedShape,
               roomId,
             })
           );
         }
       });
+    } else if (parsedData.type === "shape:duplicate") {
+      const { roomId, shape } = parsedData;
+      try {
+        // Use queues in here
+        const duplicatedShape = await prismaClient.shape.create({
+          data: { roomId, ...shape, createdBy: userId },
+        });
+
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId)) {
+            user.ws.send(
+              JSON.stringify({
+                type: "shape:duplicate",
+                shape: duplicatedShape,
+                roomId,
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.log("Error saving chat: ", error);
+      }
+    } else if (parsedData.type === "shape:delete") {
+      const { shapeId, roomId } = parsedData;
+      try {
+        const deletedShape = await prismaClient.shape.delete({
+          where: { id: shapeId, roomId },
+        });
+
+        users.forEach((user) => {
+          if (user.rooms.includes(roomId)) {
+            user.ws.send(
+              JSON.stringify({
+                type: "shape:delete",
+                shape: deletedShape,
+                roomId,
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.log("Error deleting the shape: ", error);
+      }
     }
 
     console.log("message - users - ", users);

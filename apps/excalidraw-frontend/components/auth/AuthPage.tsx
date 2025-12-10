@@ -4,8 +4,8 @@ import axios from "axios";
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import isUser from "@/auth/isUser";
 import toast from "react-hot-toast";
+import isLoggedIn from "@/helper/isLoggedIn";
 
 export default function AuthPage({ isSignin }: { isSignin: boolean }) {
   const [payload, setPayload] = useState({ username: "", password: "" });
@@ -13,8 +13,9 @@ export default function AuthPage({ isSignin }: { isSignin: boolean }) {
   const router = useRouter();
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
-    const userExits = isUser(token);
-    if (userExits) {
+    const loggedIn = isLoggedIn(token);
+
+    if (loggedIn) {
       router.push("/");
       toast.error("User already logged in");
     }
@@ -39,11 +40,16 @@ export default function AuthPage({ isSignin }: { isSignin: boolean }) {
         if (res) {
           toast.success(`User has been signed in`);
           localStorage.setItem("token", res.data.token);
-          router.push("/room");
+          router.push("/");
         }
-      } catch (error: any) {
-        console.log(error);
-        toast.error(error.response.data.message);
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.data) {
+          toast.error(error.response.data.message);
+        } else if (error instanceof Error) {
+          toast.error(error.message);
+        } else {
+          toast.error("Unknown error while signing in");
+        }
       }
     } else {
       try {
@@ -60,9 +66,16 @@ export default function AuthPage({ isSignin }: { isSignin: boolean }) {
         const data = await res.json();
         toast.success(data.message);
         router.push("/signin");
-      } catch (error: any) {
-        console.log(error);
-        toast.error(error.response.data.message);
+      } catch (error: unknown) {
+        console.error(error);
+
+        if (axios.isAxiosError(error) && error.response?.data) {
+          toast.error(error.response.data.message || "An error occurred");
+        } else if (error instanceof Error) {
+          toast.error(error.message);
+        } else {
+          toast.error("Unknown error during signup");
+        }
       }
     }
   };
